@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"os"
 	"strings"
+	"syscall"
 
 	"github.com/gocolly/colly/v2"
 )
@@ -20,32 +22,13 @@ type queryResult struct {
 	info string
 }
 
-func readJSON(filename string) (Comics, error) {
-	var comics Comics
-	byteValue, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return comics, err
-	}
-	json.Unmarshal(byteValue, &comics)
-	return comics, nil
-}
-
-func writeJSON(filename string, comics Comics) error {
-	jsonString, err := json.MarshalIndent(comics, "", "  ")
-	if err != nil {
-		log.Fatalf("Cannot write data to %v: %v", filename, err)
-	}
-	ioutil.WriteFile(filename, jsonString, 0644)
-	return nil
-}
-
 func getLatestComicURL(comicName string, comicURL string, res chan<- queryResult) {
 	log.Printf("processing comicName = %+v\n", comicName)
 	collector := colly.NewCollector()
 	data := ""
 	collector.OnHTML("#Comic", func(element *colly.HTMLElement) {
 		data = strings.Split(strings.Split(element.Text, " ")[1], "-")[1]
-		log.Printf("Comic %v got %v", comicName, data)
+		log.Printf("Comic %v got %v\n", comicName, data)
 	})
 	collector.Visit(comicURL)
 	res <- queryResult{
@@ -60,7 +43,7 @@ func getLatestAnimeURL(animeName string, animeURL string, res chan<- queryResult
 	data := ""
 	collector.OnHTML("span[class=slide-tag]", func(element *colly.HTMLElement) {
 		data = element.Text
-		log.Printf("Anime %v got %v", animeName, data)
+		log.Printf("Anime %v got %v\n", animeName, data)
 	})
 	collector.Visit(animeURL)
 	res <- queryResult{
@@ -69,25 +52,25 @@ func getLatestAnimeURL(animeName string, animeURL string, res chan<- queryResult
 	}
 }
 
-func updateComics(
-	jsonFile string,
-	comicURLs map[string]string,
-	animeURLs map[string]string,
-) {
-	record, err := readJSON(jsonFile)
+func (comics *Comics) fromJSON(data []byte) error {
+	err := json.Unmarshal(data, comics)
 	if err != nil {
-		log.Printf("Cannot data from %v: %s", jsonFile, err)
-		log.Printf("Begin as empty data")
+		return err
 	}
-	log.Printf("%+v\n", record)
-	if record.Comic == nil {
-		record.Comic = make(map[string]string)
+	if comics.Comic == nil {
+		comics.Comic = make(map[string]string)
 	}
-	if record.Anime == nil {
-		record.Anime = make(map[string]string)
+	if comics.Anime == nil {
+		comics.Anime = make(map[string]string)
 	}
+	return nil
+}
 
-	// Parse website to update data
+func (comics *Comics) toJSON() ([]byte, error) {
+	return json.MarshalIndent(comics, "", "  ")
+}
+
+func (comics *Comics) updateEpisodes(comicURLs map[string]string, animeURLs map[string]string) (shouldUpdate bool, err error) {
 	comicChan, animeChan := make(chan queryResult), make(chan queryResult)
 	for comicName, comicURL := range comicURLs {
 		go getLatestComicURL(comicName, comicURL, comicChan)
@@ -97,31 +80,64 @@ func updateComics(
 	}
 
 	// receive update
-	shouldUpdate := false
 	for i := 0; i < len(comicURLs); i++ {
 		queryRes := <-comicChan
-		val, ok := record.Comic[queryRes.name]
+		val, ok := comics.Comic[queryRes.name]
 		if !ok || val != queryRes.info {
-			record.Comic[queryRes.name] = queryRes.info
+			comics.Comic[queryRes.name] = queryRes.info
+			log.Printf("Got new update: episode = %+v\n", queryRes.info)
 			shouldUpdate = true
 		}
 	}
 	for i := 0; i < len(animeURLs); i++ {
 		queryRes := <-animeChan
-		val, ok := record.Anime[queryRes.name]
+		val, ok := comics.Anime[queryRes.name]
 		if !ok || val != queryRes.info {
-			record.Anime[queryRes.name] = queryRes.info
+			comics.Anime[queryRes.name] = queryRes.info
+			log.Printf("Got new update: episode = %+v\n", queryRes.info)
 			shouldUpdate = true
 		}
 	}
-	log.Printf("record = %+v\n", record)
+	return
+}
+
+func updateComics(
+	jsonFile string,
+	comicURLs map[string]string,
+	animeURLs map[string]string,
+) {
+	var comics Comics
+	byteValue, err := ioutil.ReadFile(jsonFile)
+	if err != nil {
+		if e, ok := err.(*os.PathError); ok && e.Err == syscall.ENOENT {
+			log.Println("File not exists, instantiate a new data")
+			byteValue = []byte("{}") // empty json data
+		} else {
+			log.Fatalf("Cannot read json from %s, error = %+v\n", jsonFile, e)
+		}
+	}
+	if err = comics.fromJSON(byteValue); err != nil {
+		log.Fatalln("Initiate data failed, error:", err)
+	}
+
+	// Parse website to update data
+	shouldUpdate, err := comics.updateEpisodes(comicURLs, animeURLs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("record = %+v\n", comics)
+	content, err := comics.toJSON()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// save record if there's any update
 	if shouldUpdate {
-		log.Printf("Update json file")
-		writeJSON(jsonFile, record)
+		log.Printf("Write json content to %s\n", jsonFile)
+		ioutil.WriteFile(jsonFile, content, 0644)
 	} else {
-		log.Printf("No update available")
+		log.Println("No update available")
 	}
 }
 
@@ -140,6 +156,5 @@ func main() {
 		"Demon-Slayer":                 "https://tw.iqiyi.com/a_19rrhrnr05.html",
 		"Two-Hit-Multi-Target-Attacks": "https://tw.iqiyi.com/a_19rri0oj3l.html",
 	}
-
 	updateComics(jsonFile, comicURLs, animeURLs)
 }
