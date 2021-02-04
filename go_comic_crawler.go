@@ -22,6 +22,8 @@ type queryResult struct {
 	info string
 }
 
+type urls map[string]string
+
 func getLatestComicURL(comicName string, comicURL string, res chan<- queryResult) {
 	log.Printf("processing comicName = %+v\n", comicName)
 	collector := colly.NewCollector()
@@ -52,7 +54,8 @@ func getLatestAnimeURL(animeName string, animeURL string, res chan<- queryResult
 	}
 }
 
-func (comics *Comics) fromJSON(data []byte) error {
+// FromJSON restore the data from given json byte array
+func (comics *Comics) FromJSON(data []byte) error {
 	err := json.Unmarshal(data, comics)
 	if err != nil {
 		return err
@@ -66,11 +69,14 @@ func (comics *Comics) fromJSON(data []byte) error {
 	return nil
 }
 
-func (comics *Comics) toJSON() ([]byte, error) {
+// ToJSON dump data to json byte array
+func (comics *Comics) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(comics, "", "  ")
 }
 
-func (comics *Comics) updateEpisodes(comicURLs map[string]string, animeURLs map[string]string) (shouldUpdate bool, err error) {
+// UpdateEpisodes updates the given comics and animes,
+// shouldUpdate indicates whether there's any newer episode available.
+func (comics *Comics) UpdateEpisodes(comicURLs urls, animeURLs urls) (shouldUpdate bool, err error) {
 	comicChan, animeChan := make(chan queryResult), make(chan queryResult)
 	for comicName, comicURL := range comicURLs {
 		go getLatestComicURL(comicName, comicURL, comicChan)
@@ -101,11 +107,7 @@ func (comics *Comics) updateEpisodes(comicURLs map[string]string, animeURLs map[
 	return
 }
 
-func updateComics(
-	jsonFile string,
-	comicURLs map[string]string,
-	animeURLs map[string]string,
-) {
+func updateComics(jsonFile string, comicURLs urls, animeURLs urls) {
 	var comics Comics
 	byteValue, err := ioutil.ReadFile(jsonFile)
 	if err != nil {
@@ -116,18 +118,18 @@ func updateComics(
 			log.Fatalf("Cannot read json from %s, error = %+v\n", jsonFile, e)
 		}
 	}
-	if err = comics.fromJSON(byteValue); err != nil {
+	if err = comics.FromJSON(byteValue); err != nil {
 		log.Fatalln("Initiate data failed, error:", err)
 	}
 
 	// Parse website to update data
-	shouldUpdate, err := comics.updateEpisodes(comicURLs, animeURLs)
+	shouldUpdate, err := comics.UpdateEpisodes(comicURLs, animeURLs)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	log.Printf("record = %+v\n", comics)
-	content, err := comics.toJSON()
+	content, err := comics.ToJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,14 +145,14 @@ func updateComics(
 
 func main() {
 	jsonFile := "crawl_record.json"
-	var comicURLs = map[string]string{
+	var comicURLs = urls{
 		"One-piece":         "https://www.comicbus.com/html/103.html",
 		"One-punch":         "https://www.comicbus.com/html/10406.html",
 		"Seven-deadly-sins": "https://www.comicbus.com/html/9418.html",
 		"Attack-on-Titan":   "https://www.comicbus.com/html/7340.html",
 		"Demon-Slayer":      "https://www.comicbus.com/html/14132.html",
 	}
-	var animeURLs = map[string]string{
+	var animeURLs = urls{
 		"One-piece":                    "https://tw.iqiyi.com/a_19rrh8ngb1.html",
 		"One-punch":                    "https://tw.iqiyi.com/a_19rrhtbgxd.html",
 		"Demon-Slayer":                 "https://tw.iqiyi.com/a_19rrhrnr05.html",
