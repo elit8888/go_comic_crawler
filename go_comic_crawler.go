@@ -1,115 +1,58 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"syscall"
-
-	"github.com/gocolly/colly/v2"
 )
-
-// Comics struct contains latest parsed episodes
-type Comics struct {
-	Comic map[string]string `json:"comic"`
-	Anime map[string]string `json:"anime"`
-}
 
 type queryResult struct {
 	name string
 	info string
+	url  string
 }
 
-type urls map[string]string
+// getLatestEpisode get the latest available episode of given name from given sources
+// and push into channel.
+// If no there's no available episode from given sources, it will push empty info
+// into channel.
+func getLatestEpisode(name string, sources []ComicSource, ch chan<- queryResult) {
+	for _, source := range sources {
+		if source.IsSupported(name) {
+			data := source.GetLatestEpisode(name)
+			ch <- queryResult{
+				name: name,
+				info: data,
+				url:  source.GetURL(name),
+			}
+			return
+		}
+	}
+	log.Printf("No available episode for %s\n", name)
+	ch <- queryResult{
+		name: name,
+		info: "",
+		url:  "",
+	}
+}
 
-func getLatestComicURL(comicName string, comicURL string, res chan<- queryResult) {
+func getLatestComicEpisode(comicName string, ch chan<- queryResult) {
+	sources := []ComicSource{&ComicBus{}}
 	log.Printf("processing comicName = %+v\n", comicName)
-	collector := colly.NewCollector()
-	data := ""
-	collector.OnHTML("#Comic", func(element *colly.HTMLElement) {
-		data = strings.Split(strings.Split(element.Text, " ")[1], "-")[1]
-		log.Printf("Comic %v got %v\n", comicName, data)
-	})
-	collector.Visit(comicURL)
-	res <- queryResult{
-		name: comicName,
-		info: data,
-	}
+	getLatestEpisode(comicName, sources, ch)
 }
 
-func getLatestAnimeURL(animeName string, animeURL string, res chan<- queryResult) {
+func getLatestAnimeEpisode(animeName string, ch chan<- queryResult) {
+	sources := []ComicSource{&Iqiyi{}}
 	log.Printf("processing animeName = %+v\n", animeName)
-	collector := colly.NewCollector()
-	data := ""
-	collector.OnHTML("span[class=slide-tag]", func(element *colly.HTMLElement) {
-		data = element.Text
-		log.Printf("Anime %v got %v\n", animeName, data)
-	})
-	collector.Visit(animeURL)
-	res <- queryResult{
-		name: animeName,
-		info: data,
-	}
+	getLatestEpisode(animeName, sources, ch)
 }
 
-// FromJSON restore the data from given json byte array
-func (comics *Comics) FromJSON(data []byte) error {
-	err := json.Unmarshal(data, comics)
-	if err != nil {
-		return err
-	}
-	if comics.Comic == nil {
-		comics.Comic = make(map[string]string)
-	}
-	if comics.Anime == nil {
-		comics.Anime = make(map[string]string)
-	}
-	return nil
-}
+func updateComics(jsonFile string, comics []string, animes []string) {
+	var comic Comics
 
-// ToJSON dump data to json byte array
-func (comics *Comics) ToJSON() ([]byte, error) {
-	return json.MarshalIndent(comics, "", "  ")
-}
-
-// UpdateEpisodes updates the given comics and animes,
-// shouldUpdate indicates whether there's any newer episode available.
-func (comics *Comics) UpdateEpisodes(comicURLs urls, animeURLs urls) (shouldUpdate bool, err error) {
-	comicChan, animeChan := make(chan queryResult), make(chan queryResult)
-	for comicName, comicURL := range comicURLs {
-		go getLatestComicURL(comicName, comicURL, comicChan)
-	}
-	for animeName, animeURL := range animeURLs {
-		go getLatestAnimeURL(animeName, animeURL, animeChan)
-	}
-
-	// receive update
-	for i := 0; i < len(comicURLs); i++ {
-		queryRes := <-comicChan
-		val, ok := comics.Comic[queryRes.name]
-		if !ok || val != queryRes.info {
-			comics.Comic[queryRes.name] = queryRes.info
-			fmt.Printf("Got new update: episode = %+v\n", queryRes.info)
-			shouldUpdate = true
-		}
-	}
-	for i := 0; i < len(animeURLs); i++ {
-		queryRes := <-animeChan
-		val, ok := comics.Anime[queryRes.name]
-		if !ok || val != queryRes.info {
-			comics.Anime[queryRes.name] = queryRes.info
-			fmt.Printf("Got new update: episode = %+v\n", queryRes.info)
-			shouldUpdate = true
-		}
-	}
-	return
-}
-
-func updateComics(jsonFile string, comicURLs urls, animeURLs urls) {
-	var comics Comics
+	// Read data from file
 	byteValue, err := ioutil.ReadFile(jsonFile)
 	if err != nil {
 		if e, ok := err.(*os.PathError); ok && e.Err == syscall.ENOENT {
@@ -119,23 +62,24 @@ func updateComics(jsonFile string, comicURLs urls, animeURLs urls) {
 			log.Fatalf("Cannot read json from %s, error = %+v\n", jsonFile, e)
 		}
 	}
-	if err = comics.FromJSON(byteValue); err != nil {
+	if err = comic.FromJSON(byteValue); err != nil {
 		log.Fatalln("Initiate data failed, error:", err)
 	}
 
 	// Parse website to update data
-	shouldUpdate, err := comics.UpdateEpisodes(comicURLs, animeURLs)
+	shouldUpdate, err := comic.UpdateEpisodes(comics, animes)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("record = %+v\n", comics)
-	content, err := comics.ToJSON()
+	log.Printf("record = %+v\n", comic)
+
+	// Save record if there's any update
+	content, err := comic.ToJSON()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// save record if there's any update
 	if shouldUpdate {
 		log.Printf("Write json content to %s\n", jsonFile)
 		ioutil.WriteFile(jsonFile, content, 0644)
@@ -146,18 +90,18 @@ func updateComics(jsonFile string, comicURLs urls, animeURLs urls) {
 
 func main() {
 	jsonFile := "crawl_record.json"
-	var comicURLs = urls{
-		"One-piece":         "https://www.comicbus.com/html/103.html",
-		"One-punch":         "https://www.comicbus.com/html/10406.html",
-		"Seven-deadly-sins": "https://www.comicbus.com/html/9418.html",
-		"Attack-on-Titan":   "https://www.comicbus.com/html/7340.html",
-		"Demon-Slayer":      "https://www.comicbus.com/html/14132.html",
+	var comics = []string{
+		"One-piece",
+		"One-punch",
+		"Seven-deadly-sins",
+		"Attack-on-Titan",
+		"Demon-Slayer",
 	}
-	var animeURLs = urls{
-		"One-piece":                    "https://tw.iqiyi.com/a_19rrh8ngb1.html",
-		"One-punch":                    "https://tw.iqiyi.com/a_19rrhtbgxd.html",
-		"Demon-Slayer":                 "https://tw.iqiyi.com/a_19rrhrnr05.html",
-		"Two-Hit-Multi-Target-Attacks": "https://tw.iqiyi.com/a_19rri0oj3l.html",
+	var animes = []string{
+		"One-piece",
+		"One-punch",
+		"Demon-Slayer",
+		"Two-Hit-Multi-Target-Attacks",
 	}
-	updateComics(jsonFile, comicURLs, animeURLs)
+	updateComics(jsonFile, comics, animes)
 }
