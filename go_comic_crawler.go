@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -91,7 +92,7 @@ func (comics *Comics) UpdateEpisodes(comicURLs urls, animeURLs urls) (shouldUpda
 		val, ok := comics.Comic[queryRes.name]
 		if !ok || val != queryRes.info {
 			comics.Comic[queryRes.name] = queryRes.info
-			log.Printf("Got new update: episode = %+v\n", queryRes.info)
+			fmt.Printf("Got new update: episode = %+v\n", queryRes.info)
 			shouldUpdate = true
 		}
 	}
@@ -100,7 +101,7 @@ func (comics *Comics) UpdateEpisodes(comicURLs urls, animeURLs urls) (shouldUpda
 		val, ok := comics.Anime[queryRes.name]
 		if !ok || val != queryRes.info {
 			comics.Anime[queryRes.name] = queryRes.info
-			log.Printf("Got new update: episode = %+v\n", queryRes.info)
+			fmt.Printf("Got new update: episode = %+v\n", queryRes.info)
 			shouldUpdate = true
 		}
 	}
