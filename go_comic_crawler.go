@@ -7,48 +7,6 @@ import (
 	"syscall"
 )
 
-type queryResult struct {
-	name string
-	info string
-	url  string
-}
-
-// getLatestEpisode get the latest available episode of given name from given sources
-// and push into channel.
-// If no there's no available episode from given sources, it will push empty info
-// into channel.
-func getLatestEpisode(name string, sources []ComicSource, ch chan<- queryResult) {
-	for _, source := range sources {
-		if source.IsSupported(name) {
-			data := source.GetLatestEpisode(name)
-			ch <- queryResult{
-				name: name,
-				info: data,
-				url:  source.GetURL(name),
-			}
-			return
-		}
-	}
-	log.Printf("No available episode for %s\n", name)
-	ch <- queryResult{
-		name: name,
-		info: "",
-		url:  "",
-	}
-}
-
-func getLatestComicEpisode(comicName string, ch chan<- queryResult) {
-	sources := []ComicSource{&ComicBus{}}
-	log.Printf("processing comicName = %+v\n", comicName)
-	getLatestEpisode(comicName, sources, ch)
-}
-
-func getLatestAnimeEpisode(animeName string, ch chan<- queryResult) {
-	sources := []ComicSource{&Iqiyi{}}
-	log.Printf("processing animeName = %+v\n", animeName)
-	getLatestEpisode(animeName, sources, ch)
-}
-
 func updateComics(jsonFile string, comics []string, animes []string) {
 	var comic Comics
 
@@ -93,14 +51,11 @@ func main() {
 	var comics = []string{
 		"One-piece",
 		"One-punch",
-		"Seven-deadly-sins",
 		"Attack-on-Titan",
-		"Demon-Slayer",
 	}
 	var animes = []string{
 		"One-piece",
 		"One-punch",
-		"Demon-Slayer",
 		"Two-Hit-Multi-Target-Attacks",
 	}
 	updateComics(jsonFile, comics, animes)

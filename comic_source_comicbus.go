@@ -12,12 +12,12 @@ import (
 type ComicBus struct{}
 
 var comicBusList = map[string]string{
-	"one-piece":         "103",
-	"one-punch":         "10406",
-	"seven-deadly-sins": "9418",
-	"attack-on-titan":   "7340",
-	"demon-slayer":      "14132",
+	"one-piece":       "103",
+	"one-punch":       "10406",
+	"attack-on-titan": "7340",
 }
+
+var comicbusBaseURL = "https://www.comicbus.com/html/%s.html"
 
 // IsSupported returns whether the given comic name is supported.
 func (comicbus *ComicBus) IsSupported(name string) bool {
@@ -44,5 +44,11 @@ func (comicbus *ComicBus) GetLatestEpisode(name string) string {
 // GetURL returns the string of the url to be queried.
 func (comicbus *ComicBus) GetURL(name string) string {
 	name = strings.ToLower(name)
-	return fmt.Sprintf("https://www.comicbus.com/html/%s.html", comicBusList[name])
+	return fmt.Sprintf(comicbusBaseURL, comicBusList[name])
+}
+
+// AddList add a mapping entry for given name, and it overwrite the original one
+// if entry exists.
+func (comicbus *ComicBus) AddList(name, page string) {
+	comicBusList[name] = page
 }
