@@ -29,12 +29,14 @@ func (iqiyi *Iqiyi) IsSupported(name string) bool {
 // GetLatestEpisode query latest episode from iqiyi website
 func (iqiyi *Iqiyi) GetLatestEpisode(name string) string {
 	var data string
+	url := iqiyi.GetURL(name)
+	log.Printf("Query latest episode of %s from %s", name, url)
 	collector := colly.NewCollector()
 	collector.OnHTML("span[class=slide-tag]", func(element *colly.HTMLElement) {
 		data = element.Text
 		log.Printf("Anime %v got %v\n", name, data)
 	})
-	collector.Visit(iqiyi.GetURL(name))
+	collector.Visit(url)
 	return data
 }
 

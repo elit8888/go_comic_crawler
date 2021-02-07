@@ -30,12 +30,14 @@ func (comicbus *ComicBus) IsSupported(name string) bool {
 // GetLatestEpisode query latest episode from iqiyi website
 func (comicbus *ComicBus) GetLatestEpisode(name string) string {
 	var data string
+	url := comicbus.GetURL(name)
+	log.Printf("Query latest episode of %s from %s", name, url)
 	collector := colly.NewCollector()
 	collector.OnHTML("#Comic", func(element *colly.HTMLElement) {
 		data = strings.Split(strings.Split(element.Text, " ")[1], "-")[1]
 		log.Printf("Comic %v got %v\n", name, data)
 	})
-	collector.Visit(comicbus.GetURL(name))
+	collector.Visit(url)
 	return data
 }
 
