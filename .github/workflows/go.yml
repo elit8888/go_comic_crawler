@@ -31,7 +31,7 @@ jobs:
       run: go build -v ./...
 
     - name: Run
-      run: ./go_comic_crawler
+      run: ./go_comic_crawler > update.txt
 
     - name: Check for changes
       run: |
@@ -40,6 +40,14 @@ jobs:
         else
           echo "changes_exist=1" >> $GITHUB_ENV
         fi
+
+    - name: Telegram notify
+      if: ${{ env.changes_exist == '1' && github.ref == 'refs/heads/main' }}
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message_file: update.txt
 
     - name: update result if any
       if: ${{ env.changes_exist == '1' && github.ref == 'refs/heads/main' }}

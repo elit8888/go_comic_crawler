@@ -55,7 +55,7 @@ func (comic *Comics) UpdateEpisodes(comics []string, animes []string) (shouldUpd
 		oriEps, ok := comic.Comic[queryRes.name]
 		if !ok || oriEps != queryRes.info {
 			comic.Comic[queryRes.name] = queryRes.info
-			fmt.Printf("Got new update: episode = %+v (%s)\n", queryRes.info, queryRes.url)
+			fmt.Printf("%s got new episode: %+v (%s)\n", queryRes.name, queryRes.info, queryRes.url)
 			shouldUpdate = true
 		}
 	}
@@ -64,7 +64,7 @@ func (comic *Comics) UpdateEpisodes(comics []string, animes []string) (shouldUpd
 		oriEps, ok := comic.Anime[queryRes.name]
 		if !ok || oriEps != queryRes.info {
 			comic.Anime[queryRes.name] = queryRes.info
-			fmt.Printf("Got new update: episode = %+v (%s)\n", queryRes.info, queryRes.url)
+			fmt.Printf("%s got new episode: %+v (%s)\n", queryRes.name, queryRes.info, queryRes.url)
 			shouldUpdate = true
 		}
 	}
