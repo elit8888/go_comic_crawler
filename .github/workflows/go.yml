@@ -33,13 +33,13 @@ jobs:
     - name: Check for changes
       run: |
         if git diff --exit-code; then
-          echo "::set-env name=changes_exist::true"
+          echo "changes_exist=1" >> $GITHUB_ENV
         else
-          echo "::set-env name=changes_exist::false"
+          echo "changes_exist=0" >> $GITHUB_ENV
         fi
 
     - name: update result if any
-      if: ${{ env.changes_exist == 'true' }}
+      if: ${{ env.changes_exist == '1' }}
       run: |
         git config --global user.name 'Elit Zou'
         git config --global user.email 'elit8888@gmail.com'
