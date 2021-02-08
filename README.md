@@ -2,4 +2,6 @@
 
 Get latest episode of the specific comics / animes, using go.
 
+Also try to utilize some GitHub actions.
+
 Currently the comics / animes were hard-coded in source file.
