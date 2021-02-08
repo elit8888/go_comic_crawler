@@ -42,15 +42,15 @@ jobs:
         fi
 
     - name: update result if any
-      if: ${{ env.changes_exist == '1' }}
+      if: ${{ env.changes_exist == '1' && github.ref == 'refs/heads/main' }}
       run: |
         git config --global user.name 'Elit Zou'
         git config --global user.email 'elit8888@gmail.com'
         git commit -am "chore: update crawl result"
 
     - name: Push changes
-      if: ${{ env.changes_exist == '1' }}
+      if: ${{ env.changes_exist == '1' && github.ref == 'refs/heads/main' }}
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ github.head_ref }}
+        branch: ${{ main }}
