@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+        fetch-depth: 0
 
     - name: Set up Go
       uses: actions/setup-go@v2
@@ -29,3 +32,25 @@ jobs:
 
     - name: Run
       run: ./go_comic_crawler
+
+    - name: Check for changes
+      run: |
+        if git diff --exit-code; then
+          echo "changes_exist=0" >> $GITHUB_ENV
+        else
+          echo "changes_exist=1" >> $GITHUB_ENV
+        fi
+
+    - name: update result if any
+      if: ${{ env.changes_exist == '1' }}
+      run: |
+        git config --global user.name 'Elit Zou'
+        git config --global user.email 'elit8888@gmail.com'
+        git commit -am "chore: update crawl result"
+
+    - name: Push changes
+      if: ${{ env.changes_exist == '1' }}
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.head_ref }}
