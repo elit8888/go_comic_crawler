@@ -29,3 +29,19 @@ jobs:
 
     - name: Run
       run: ./go_comic_crawler
+
+    - name: Check for changes
+      run: |
+        if git diff --exit-code; then
+          echo "::set-env name=changes_exist::true"
+        else
+          echo "::set-env name=changes_exist::false"
+        fi
+
+    - name: update result if any
+      if: ${{ env.changes_exist == 'true' }}
+      run: |
+        git config --global user.name 'Elit Zou'
+        git config --global user.email 'elit8888@gmail.com'
+        git commit -am "chore: update crawl result"
+        git push
