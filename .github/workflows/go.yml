@@ -33,9 +33,9 @@ jobs:
     - name: Check for changes
       run: |
         if git diff --exit-code; then
-          echo "changes_exist=1" >> $GITHUB_ENV
-        else
           echo "changes_exist=0" >> $GITHUB_ENV
+        else
+          echo "changes_exist=1" >> $GITHUB_ENV
         fi
 
     - name: update result if any
