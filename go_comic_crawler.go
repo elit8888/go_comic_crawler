@@ -52,6 +52,7 @@ func main() {
 		"One-piece",
 		"One-punch",
 		"Attack-on-Titan",
+		"Jujutsu-Kaisen",
 	}
 	var animes = []string{
 		"One-piece",

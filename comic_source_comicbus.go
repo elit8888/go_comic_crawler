@@ -15,6 +15,7 @@ var comicBusList = map[string]string{
 	"one-piece":       "103",
 	"one-punch":       "10406",
 	"attack-on-titan": "7340",
+	"jujutsu-kaisen":  "15790",
 }
 
 var comicbusBaseURL = "https://www.comicbus.com/html/%s.html"
