@@ -41,7 +41,10 @@ jobs:
     - name: update result if any
       if: ${{ env.changes_exist == '1' }}
       run: |
+        echo "GITHUB_REF is $GITHUB_REF"
+        echo "GITHUB_HEAD_REF is $GITHUB_HEAD_REF"
+        echo "GITHUB_BASE_REF is $GITHUB_BASE_REF"
         git config --global user.name 'Elit Zou'
         git config --global user.email 'elit8888@gmail.com'
         git commit -am "chore: update crawl result"
-        git push
+        git push origin $GITHUB_REF
