@@ -35,7 +35,7 @@ func (comicbus *ComicBus) GetLatestEpisode(name string) string {
 	log.Printf("Query latest episode of %s from %s", name, url)
 	collector := colly.NewCollector()
 	collector.OnHTML("#Comic", func(element *colly.HTMLElement) {
-		data = strings.Split(strings.Split(element.Text, " ")[1], "-")[1]
+		data = strings.Split(strings.Fields(element.Text)[2], "-")[1]
 		log.Printf("Comic %v got %v\n", name, data)
 	})
 	collector.Visit(url)
